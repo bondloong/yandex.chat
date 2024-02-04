@@ -1,0 +1,1 @@
+export default `<button>Click me!</button>`
