@@ -1,19 +1,87 @@
 import Handlebars from 'handlebars';
-import greetings from './templates/greeting.templ.ts';
-import button from './partials/button.templ.ts';
 
-Handlebars.registerPartial('button', button);
+import * as Components from './components';
+import * as Pages from './pages';
+import * as Files from './assets'
 
-document.addEventListener('DOMContentLoaded', () => {
-	const app = document.querySelector('#app');
+import { IChat, IMessages, chats, messages, profile } from './utils/constants'
 
-	const template = Handlebars.compile(greetings);
 
-	const result = template({ username: 'Alexey' })
+const pages = {
+	//@ts-ignore
+	'login': [Pages.PageLogin, { ...Files }],
+	'register': [Pages.PageRegister, { ...Files }],
+	'chat': [Pages.PageChat, { chats, messages, openedChatId: "444", profile, ...Files }],
+	'chat-user': [Pages.PageChatUser, { chats, messages, openedChatId: "444", profile, ...Files }],
+	'chat-user-delete': [Pages.PageChatUser, { chats, messages, profile, deleteUser: "444", ...Files }],
+	'500': [Pages.ErrorPage, { errorNumber: 500, errorDescription: "Ошибка сервера", errorText: "На сервере произошла непредвиденная ошибка. Пожалуйста, подождите, мы уже занимаемся решением.", ...Files }],
+	'404': [Pages.ErrorPage, { errorNumber: 404, errorDescription: "Страница не найдена", errorText: "Мы ещё не успели сделать эту страницу.", ...Files }],
+	'profile': [Pages.PageProfile, { ...profile, ...Files }],
+	'profile-change': [Pages.PageProfileChange, { ...profile, ...Files }],
+};
 
-	if (app) {
-		app.innerHTML = result;
-	} else {
-		console.log('app element not found')
+Handlebars.registerHelper('formatLastWritterLogin', function (lastWritterLogin) {
+	return lastWritterLogin === '@You' ? 'Вы:' : "";
+});
+
+Handlebars.registerHelper('ifMessageFromYou', function (Login) {
+	return Login === '@You' ? 'messages_from-you' : "messages_to-you";
+});
+
+Handlebars.registerHelper('getMessagesByChatId', function (messages: IMessages[], chatId: string) {
+	const filteredMessages = messages.filter((message: IMessages) => message.chatId === chatId);
+	return filteredMessages
+});
+
+Handlebars.registerHelper('sortByUnreading', function (chats: IChat[]) {
+	const sortedChats = chats.slice();
+
+	sortedChats.sort((a, b) => b.unReading - a.unReading);
+
+	return sortedChats.map(chat => ({
+		...chat,
+		isTarget: chat.unReading > 0,
+	}));
+});
+
+Handlebars.registerHelper('nl2br', function (text) {
+	const escapedText = Handlebars.Utils.escapeExpression(text);
+	const withBreaks = escapedText.replace(/\n/g, '<br>');
+	return new Handlebars.SafeString(withBreaks);
+});
+
+
+
+Object.entries(Components).forEach(([name, component]) => {
+	Handlebars.registerPartial(name, component);
+});
+
+
+function navigate(page: string) {
+	//@ts-ignore
+	const [source, context] = pages[page];
+	const container = document.getElementById('app')!;
+	container.innerHTML = Handlebars.compile(source)(context);
+}
+
+document.addEventListener('DOMContentLoaded', () => navigate('chat'));
+
+document.addEventListener('click', e => {
+	console.log(e.target)
+	//@ts-ignore
+	const page = e.target.getAttribute('page');
+	const popup = document.getElementById('popup-close');
+	if (page) {
+		navigate(page);
+		e.preventDefault();
+		e.stopImmediatePropagation();
 	}
-})
+	//@ts-ignore
+	if (e.target.getAttribute("id") === 'popup-close') {
+		//@ts-ignore
+		popup.style.display = 'none';
+		e.preventDefault();
+		e.stopImmediatePropagation();
+	}
+
+});
